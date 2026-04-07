@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafeMA — Anytime-Valid Sequential Meta-Analysis with E-Values</title>
+<style>
+:root {
+  --bg:#0a0a1a; --surface:#141428; --surface2:#1c1c38; --card:#1a1a34;
+  --border:#2a2a4a; --text:#e8e8f0; --text2:#9898b0; --accent:#7c4dff;
+  --green:#4caf50; --red:#f44336; --amber:#ff9800; --blue:#42a5f5; --gold:#d4a853;
+  --font:'Segoe UI',system-ui,sans-serif; --serif:Georgia,'Times New Roman',serif;
+  --mono:'Consolas','Monaco',monospace; --radius:10px; --shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+[data-theme="light"]{
+  --bg:#f5f3ef; --surface:#fff; --surface2:#f0ede7; --card:#fff;
+  --border:#d5d0c8; --text:#1a1a2e; --text2:#666; --shadow:0 4px 24px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6}
+.page{max-width:1000px;margin:0 auto;padding:24px 16px}
+header{text-align:center;padding:28px 0 20px;border-bottom:2px solid var(--accent);margin-bottom:20px}
+.title{font-family:var(--serif);font-size:2rem;font-weight:700;color:var(--accent);letter-spacing:-0.02em}
+.subtitle{font-size:0.9rem;color:var(--text2);margin-top:4px}
+.badge{display:inline-block;background:var(--accent);color:#fff;padding:2px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;vertical-align:middle;margin-left:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{font-size:1rem;color:var(--accent);margin-bottom:10px;font-family:var(--serif)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:8px 16px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:600;transition:0.2s}
+.tab-btn:hover{color:var(--text);border-color:var(--accent)}
+.tab-btn.active{background:var(--card);color:var(--accent);border-bottom-color:var(--card)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.btn{padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:0.2s}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{filter:brightness(1.15)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.ex-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.ex-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:16px;font-size:11px;cursor:pointer}.ex-btn:hover{border-color:var(--accent);color:var(--accent)}
+table.data{width:100%;border-collapse:collapse;font-size:13px;font-family:var(--mono)}
+table.data th{background:var(--surface);color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.05em;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
+table.data td{padding:5px 8px;border-bottom:1px solid var(--border)}
+table.data input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;width:100%;font-family:var(--mono);font-size:12px}
+.del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.metric{background:var(--surface);padding:12px;border-radius:8px;text-align:center}
+.metric-val{font-size:1.6rem;font-weight:900;font-family:var(--serif)}
+.metric-lbl{font-size:0.75rem;color:var(--text2);margin-top:2px}
+.metric-val.crossed{color:var(--green)}.metric-val.not-crossed{color:var(--text2)}
+canvas{width:100%;border-radius:8px;background:var(--surface)}
+.report-text{font-family:var(--serif);font-size:0.9rem;line-height:1.7;white-space:pre-wrap}
+.theme-btn{position:fixed;top:12px;right:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:16px;cursor:pointer;font-size:11px;z-index:100}
+.skip-nav{position:absolute;left:-9999px;top:auto}.skip-nav:focus{position:fixed;left:0;top:0;z-index:999;padding:8px 16px;background:var(--accent);color:#fff;text-decoration:none;border-radius:0 0 8px 0}
+.formula{font-family:var(--mono);font-size:0.85rem;color:var(--text2);background:var(--surface);padding:8px 12px;border-radius:6px;margin:8px 0;overflow-x:auto}
+@media print{.no-print{display:none!important}body{background:#fff;color:#000}}
+</style>
+</head>
+<body>
+<a href="#main" class="skip-nav">Skip to content</a>
+<button class="theme-btn no-print" onclick="toggleTheme()" aria-label="Toggle theme">Light</button>
+
+<div class="page" id="main" role="main">
+<header>
+  <div class="title">SafeMA <span class="badge">E-VALUES</span></div>
+  <div class="subtitle">Anytime-Valid Sequential Meta-Analysis &mdash; No Alpha-Spending, No Pre-Specified Looks</div>
+  <div style="font-size:0.8rem;color:var(--text2);margin-top:6px">Based on Gr&uuml;nwald, de Heide &amp; Koolen (JRSS-B 2024) and Ter Schure &amp; Gr&uuml;nwald (ALL-IN, 2022)</div>
+</header>
+
+<!-- Tabs -->
+<div class="tabs no-print" role="tablist">
+  <button class="tab-btn active" role="tab" aria-selected="true" onclick="switchTab('data')" id="tbtn-data">Data</button>
+  <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('eplot')" id="tbtn-eplot">E-Process</button>
+  <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('confseq')" id="tbtn-confseq">Confidence Sequence</button>
+  <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('compare')" id="tbtn-compare">vs Classical TSA</button>
+  <button class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('report')" id="tbtn-report">Report</button>
+</div>
+
+<!-- Tab 1: Data -->
+<div class="tab-panel active" id="panel-data" role="tabpanel">
+  <div class="card">
+    <h2>Study Data</h2>
+    <div class="ex-bar">
+      <span style="color:var(--text2);font-size:11px;align-self:center">Examples:</span>
+      <button class="ex-btn" onclick="loadExample(0)">SGLT2i Heart Failure (k=8)</button>
+      <button class="ex-btn" onclick="loadExample(1)">Magnesium-MI / Teo (k=8)</button>
+      <button class="ex-btn" onclick="loadExample(2)">HCQ COVID-19 (k=6)</button>
+    </div>
+    <table class="data" id="dataTable">
+      <thead><tr><th>Study</th><th>Year</th><th>Events(E)</th><th>N(E)</th><th>Events(C)</th><th>N(C)</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-sm btn-outline" onclick="addRow()">+ Add Study</button>
+      <button class="btn btn-sm btn-outline" onclick="clearData()">Clear</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Settings</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      <div>
+        <label style="font-size:12px;color:var(--text2)">Alpha (type I error)</label>
+        <input type="number" id="setAlpha" value="0.05" step="0.01" min="0.001" max="0.5" style="width:100%;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:var(--mono)">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2)">Anticipated effect (log scale)</label>
+        <input type="number" id="setMu1" value="" step="0.01" placeholder="Auto from pooled" style="width:100%;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:var(--mono)">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2)">Prior variance for mixture (tau²)</label>
+        <input type="number" id="setTau2" value="0.5" step="0.1" min="0.01" style="width:100%;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:var(--mono)">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2)">Effect measure</label>
+        <select id="setMeasure" style="width:100%;padding:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px">
+          <option value="OR">Odds Ratio (log)</option>
+          <option value="RR">Risk Ratio (log)</option>
+          <option value="RD">Risk Difference</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Run Safe Meta-Analysis</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2: E-Process -->
+<div class="tab-panel" id="panel-eplot" role="tabpanel">
+  <div class="card">
+    <h2>Cumulative E-Process</h2>
+    <div class="formula">S_k = &prod; E_i = exp(&mu;&#x2081; &sum; y_i/v_i &minus; &mu;&#x2081;&sup2;/2 &sum; 1/v_i) &nbsp; | &nbsp; Reject H&#x2080; when S_k &ge; 1/&alpha;</div>
+    <div class="metrics" id="eMetrics"></div>
+    <canvas id="eCanvas" width="960" height="400" aria-label="E-process cumulative evidence plot"></canvas>
+  </div>
+  <div class="card">
+    <h2>Study-Level E-Values</h2>
+    <table class="data" id="evalueTable"></table>
+  </div>
+</div>
+
+<!-- Tab 3: Confidence Sequence -->
+<div class="tab-panel" id="panel-confseq" role="tabpanel">
+  <div class="card">
+    <h2>Anytime-Valid Confidence Sequence</h2>
+    <div class="formula">C_k = {&mu; : &prod; E_i(&mu;) &ge; 1/&alpha;} &nbsp; &mdash; &nbsp; P(&mu; &in; C_k for ALL k) &ge; 1&minus;&alpha;</div>
+    <canvas id="csCanvas" width="960" height="400" aria-label="Confidence sequence vs classical confidence interval"></canvas>
+    <div style="font-size:0.8rem;color:var(--text2);margin-top:8px">Green: anytime-valid confidence sequence (wider, but valid at ALL stopping times). Blue: classical CI (valid only at pre-specified looks).</div>
+  </div>
+</div>
+
+<!-- Tab 4: Comparison -->
+<div class="tab-panel" id="panel-compare" role="tabpanel">
+  <div class="card">
+    <h2>E-Values vs Classical TSA</h2>
+    <canvas id="compareCanvas" width="960" height="400" aria-label="Comparison of e-value process with classical Z-statistic and alpha-spending boundaries"></canvas>
+    <div style="font-size:0.8rem;color:var(--text2);margin-top:8px">Purple: cumulative log-e-value. Blue dashes: classical cumulative Z. Gray: O'Brien-Fleming spending boundary. Red line: e-value threshold log(1/&alpha;).</div>
+  </div>
+  <div class="card">
+    <h2>Key Differences</h2>
+    <table class="data" id="compareTable">
+      <thead><tr><th>Property</th><th>Classical TSA</th><th>SafeMA (E-Values)</th></tr></thead>
+      <tbody>
+        <tr><td>Pre-specify looks</td><td>Required</td><td style="color:var(--green)">Not needed</td></tr>
+        <tr><td>Pre-specify RIS</td><td>Required</td><td style="color:var(--green)">Not needed</td></tr>
+        <tr><td>Optional stopping</td><td>Only at planned looks</td><td style="color:var(--green)">Anytime</td></tr>
+        <tr><td>Optional continuation</td><td>Must re-spend alpha</td><td style="color:var(--green)">Automatic</td></tr>
+        <tr><td>Type I control</td><td>At planned looks</td><td style="color:var(--green)">Always (Ville)</td></tr>
+        <tr><td>Mathematical basis</td><td>Neyman-Pearson</td><td>Game-theoretic</td></tr>
+        <tr><td>Composability</td><td>Complex (spending)</td><td style="color:var(--green)">Multiply E-values</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab 5: Report -->
+<div class="tab-panel" id="panel-report" role="tabpanel">
+  <div class="card">
+    <h2>Structured Report</h2>
+    <div class="report-text" id="reportText">Run analysis to generate report.</div>
+    <div class="no-print" style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-sm btn-outline" onclick="copyReport()">Copy</button>
+      <button class="btn btn-sm btn-outline" onclick="exportJSON()">Export JSON</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<footer style="text-align:center;padding:20px;color:var(--text2);font-size:0.78rem;border-top:1px solid var(--border);margin-top:16px">
+  SafeMA v1.0 &mdash; Gr&uuml;nwald-Ter Schure ALL-IN framework &mdash; No data leaves your device &mdash; MIT License
+</footer>
+
+<script>
+/* ============================================================
+   SafeMA: Anytime-Valid Sequential Meta-Analysis with E-Values
+
+   Mathematical foundation:
+   - Grünwald, de Heide, Koolen. "Safe Testing." JRSS-B 2024.
+   - Ter Schure, Grünwald. "ALL-IN Meta-Analysis." F1000Res 2022.
+   - Ramdas, Wang. "Hypothesis Testing with E-values." 2025.
+   ============================================================ */
+
+// === STATE ===
+var state = { studies: [], result: null };
+
+// === EXAMPLES ===
+var EXAMPLES = [
+  { name: 'SGLT2i Heart Failure', measure: 'OR', mu1Hint: -0.3, studies: [
+    {study:'DAPA-HF 2019',year:2019,eE:386,nE:2373,eC:502,nC:2371},
+    {study:'EMPEROR-Red 2020',year:2020,eE:361,nE:1863,eC:462,nC:1867},
+    {study:'SOLOIST 2021',year:2021,eE:51,nE:608,eC:76,nC:614},
+    {study:'DELIVER 2022',year:2022,eE:512,nE:3131,eC:610,nC:3132},
+    {study:'EMPEROR-Pres 2022',year:2022,eE:415,nE:2997,eC:511,nC:2991},
+    {study:'DAPA-CKD sub',year:2020,eE:38,nE:468,eC:72,nC:466},
+    {study:'CREDENCE sub',year:2019,eE:141,nE:630,eC:168,nC:634},
+    {study:'VERTIS sub',year:2020,eE:128,nE:1958,eC:133,nC:1958}
+  ]},
+  { name: 'Magnesium-MI (Teo)', measure: 'OR', mu1Hint: -0.5, studies: [
+    {study:'Morton 1984',year:1984,eE:1,nE:40,eC:2,nC:36},
+    {study:'Rasmussen 1986',year:1986,eE:1,nE:135,eC:7,nC:135},
+    {study:'Smith 1986',year:1986,eE:2,nE:200,eC:7,nC:200},
+    {study:'Abraham 1987',year:1987,eE:1,nE:48,eC:1,nC:46},
+    {study:'Feldstedt 1988',year:1988,eE:10,nE:150,eC:8,nC:148},
+    {study:'Shechter 1990',year:1990,eE:1,nE:59,eC:9,nC:56},
+    {study:'Ceremuzynski 1989',year:1989,eE:1,nE:25,eC:3,nC:23},
+    {study:'ISIS-4 1995',year:1995,eE:2216,nE:29011,eC:2103,nC:29039}
+  ]},
+  { name: 'HCQ COVID-19', measure: 'OR', mu1Hint: -0.3, studies: [
+    {study:'Chen 2020a',year:2020,eE:8,nE:31,eC:17,nC:31},
+    {study:'Tang 2020',year:2020,eE:21,nE:75,eC:24,nC:75},
+    {study:'Boulware 2020',year:2020,eE:49,nE:414,eC:58,nC:407},
+    {study:'Cavalcanti 2020',year:2020,eE:55,nE:221,eC:45,nC:227},
+    {study:'RECOVERY 2020',year:2020,eE:421,nE:1561,eC:790,nC:3155},
+    {study:'WHO SOLIDARITY',year:2020,eE:104,nE:947,eC:84,nC:906}
+  ]}
+];
+
+// === MATH PRIMITIVES ===
+function normalCDF(x) {
+  if (x===0) return 0.5;
+  var a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  var s=x<0?-1:1,ax=Math.abs(x),t=1/(1+p*ax);
+  var y=1-(a1*t+a2*t*t+a3*t*t*t+a4*t*t*t*t+a5*t*t*t*t*t)*Math.exp(-ax*ax/2);
+  return 0.5*(1+s*y);
+}
+function normalQuantile(p) {
+  if(p<=0)return-Infinity;if(p>=1)return Infinity;if(p===0.5)return 0;
+  var a=[-3.969683028665376e1,2.209460984245205e2,-2.759285104469687e2,1.383577518672690e2,-3.066479806614716e1,2.506628277459239e0];
+  var b=[-5.447609879822406e1,1.615858368580409e2,-1.556989798598866e2,6.680131188771972e1,-1.328068155288572e1];
+  var c=[-7.784894002430293e-3,-3.223964580411365e-1,-2.400758277161838e0,-2.549732539343734e0,4.374664141464968e0,2.938163982698783e0];
+  var d=[7.784695709041462e-3,3.224671290700398e-1,2.445134137142996e0,3.754408661907416e0];
+  var pL=0.02425,pH=1-pL,q,r;
+  if(p<pL){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=pH){q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+
+// === EFFECT SIZE ===
+function logOR(eE,nE,eC,nC) {
+  var cc=0.5,a=eE+cc,b=nE-eE+cc,c=eC+cc,d=nC-eC+cc;
+  return {yi:Math.log(a*d/(b*c)), vi:1/a+1/b+1/c+1/d};
+}
+function logRR(eE,nE,eC,nC) {
+  var cc=0.5,pE=(eE+cc)/(nE+2*cc),pC=(eC+cc)/(nC+2*cc);
+  return {yi:Math.log(pE/pC), vi:(1-pE)/(pE*(nE+2*cc))+(1-pC)/(pC*(nC+2*cc))};
+}
+function riskDiff(eE,nE,eC,nC) {
+  var pE=eE/nE,pC=eC/nC;
+  var vi=pE*(1-pE)/nE+pC*(1-pC)/nC;
+  if(vi<=0)vi=1/(2*nE)+1/(2*nC);
+  return {yi:pE-pC, vi:vi};
+}
+function getEffect(s,measure) {
+  if(measure==='OR')return logOR(s.eE,s.nE,s.eC,s.nC);
+  if(measure==='RR')return logRR(s.eE,s.nE,s.eC,s.nC);
+  return riskDiff(s.eE,s.nE,s.eC,s.nC);
+}
+
+// === E-VALUE ENGINE ===
+
+/**
+ * GRO (Growth-Rate Optimal) e-value for a single study.
+ * E_i = exp(mu1 * yi / vi - mu1^2 / (2*vi))
+ * Under H0 (mu=0), E[E_i] = 1 (exactly).
+ * Under H1 (mu=mu1), E[log E_i] is maximized.
+ */
+function groEValue(yi, vi, mu1) {
+  return Math.exp(mu1 * yi / vi - mu1 * mu1 / (2 * vi));
+}
+
+/**
+ * Mixture e-value: integrate GRO e-value over a normal prior for mu1.
+ * With pi(mu1) = N(0, tau2):
+ * E_i^mix = sqrt(vi / (vi + tau2)) * exp(tau2 * yi^2 / (2 * vi * (vi + tau2)))
+ * This is a closed-form result from completing the square in the Gaussian integral.
+ */
+function mixtureEValue(yi, vi, tau2) {
+  var ratio = vi / (vi + tau2);
+  return Math.sqrt(ratio) * Math.exp(tau2 * yi * yi / (2 * vi * (vi + tau2)));
+}
+
+/**
+ * Compute cumulative e-process for a sequence of studies.
+ * Returns array of {k, study, yi, vi, eValue, logE, cumLogE, cumE, crossed}.
+ */
+function computeEProcess(studies, measure, mu1, tau2Mix, alpha) {
+  var threshold = 1 / alpha;
+  var logThreshold = Math.log(threshold);
+  var results = [];
+  var cumLogE = 0;
+  var crossed = false;
+  var crossedAt = null;
+
+  // If mu1 is null/NaN, estimate from fixed-effect pooled estimate
+  var effects = studies.map(function(s){return getEffect(s,measure);});
+  if (!isFinite(mu1)) {
+    var sumWY = 0, sumW = 0;
+    effects.forEach(function(e){sumWY += e.yi/e.vi; sumW += 1/e.vi;});
+    mu1 = sumWY / sumW;
+    // Clamp to avoid trivial e-values
+    if (Math.abs(mu1) < 0.01) mu1 = mu1 < 0 ? -0.1 : 0.1;
+  }
+
+  // Cumulative pooled estimate for confidence sequence
+  var cumSumWY = 0, cumSumW = 0;
+
+  for (var i = 0; i < studies.length; i++) {
+    var yi = effects[i].yi;
+    var vi = effects[i].vi;
+
+    // GRO e-value
+    var eGRO = groEValue(yi, vi, mu1);
+    // Mixture e-value
+    var eMix = mixtureEValue(yi, vi, tau2Mix);
+    // Use the better of GRO and mixture (max)
+    var eVal = Math.max(eGRO, eMix);
+    var logE = Math.log(Math.max(eVal, 1e-300));
+
+    cumLogE += logE;
+    var cumE = Math.exp(cumLogE);
+
+    // Cumulative pooling for CS
+    cumSumWY += yi / vi;
+    cumSumW += 1 / vi;
+    var muHat = cumSumWY / cumSumW;
+    var seMuHat = Math.sqrt(1 / cumSumW);
+
+    // Classical CI
+    var ciLo = muHat - 1.96 * seMuHat;
+    var ciHi = muHat + 1.96 * seMuHat;
+
+    // Anytime-valid confidence sequence (from e-value inversion)
+    // CS width: mu_hat +/- sqrt(2 * log(1/alpha) / W_k)
+    // This is the basic Wald-type CS; for mixture CS, width is wider
+    var csHalfWidth = Math.sqrt(2 * logThreshold / cumSumW);
+    var csLo = muHat - csHalfWidth;
+    var csHi = muHat + csHalfWidth;
+
+    if (!crossed && cumE >= threshold) {
+      crossed = true;
+      crossedAt = i;
+    }
+
+    results.push({
+      k: i + 1,
+      study: studies[i].study,
+      year: studies[i].year,
+      yi: yi,
+      vi: vi,
+      eGRO: eGRO,
+      eMix: eMix,
+      eValue: eVal,
+      logE: logE,
+      cumLogE: cumLogE,
+      cumE: cumE,
+      crossed: crossed,
+      muHat: muHat,
+      seMuHat: seMuHat,
+      ciLo: ciLo,
+      ciHi: ciHi,
+      csLo: csLo,
+      csHi: csHi,
+      // Classical Z for comparison
+      classicalZ: muHat / seMuHat
+    });
+  }
+
+  return {
+    results: results,
+    mu1: mu1,
+    tau2Mix: tau2Mix,
+    alpha: alpha,
+    threshold: threshold,
+    logThreshold: logThreshold,
+    crossed: crossed,
+    crossedAt: crossedAt,
+    measure: measure,
+    finalE: results.length > 0 ? results[results.length-1].cumE : 0,
+    finalLogE: results.length > 0 ? results[results.length-1].cumLogE : 0
+  };
+}
+
+// === DL POOLING (for comparison) ===
+function dlPool(yi, vi) {
+  var k=yi.length;if(k===0)return null;
+  var wF=vi.map(function(v){return 1/v}),sumW=wF.reduce(function(a,b){return a+b},0);
+  var muF=0;for(var i=0;i<k;i++)muF+=wF[i]*yi[i];muF/=sumW;
+  var Q=0;for(var i=0;i<k;i++)Q+=wF[i]*(yi[i]-muF)*(yi[i]-muF);
+  var C=sumW-wF.reduce(function(a,w){return a+w*w},0)/sumW;
+  var tau2=Math.max(0,(Q-(k-1))/Math.max(C,1e-9));
+  var wR=vi.map(function(v){return 1/(v+tau2)}),sumWR=wR.reduce(function(a,b){return a+b},0);
+  var est=0;for(var i=0;i<k;i++)est+=wR[i]*yi[i];est/=sumWR;
+  var se=Math.sqrt(1/sumWR);
+  var I2=Q>0?Math.max(0,(Q-(k-1))/Q):0;
+  return {est:est,se:se,tau2:tau2,I2:I2,Q:Q,k:k};
+}
+
+// === CANVAS RENDERING ===
+function setCanvas(canvas, w, h) {
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return ctx;
+}
+
+function drawEProcess(result) {
+  var canvas = document.getElementById('eCanvas');
+  var W = 960, H = 380;
+  var ctx = setCanvas(canvas, W, H);
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var textC = isDark ? '#e0e0e0' : '#1a1a2e';
+  var gridC = isDark ? '#2a2a4a' : '#ddd';
+  var accentC = '#7c4dff';
+  var greenC = '#4caf50';
+  var redC = '#f44336';
+
+  ctx.fillStyle = isDark ? '#141428' : '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  var r = result.results;
+  if (r.length === 0) return;
+
+  var margin = {l:70,r:30,t:40,b:50};
+  var plotW = W - margin.l - margin.r;
+  var plotH = H - margin.t - margin.b;
+
+  // Y axis: log(cumE)
+  var logVals = r.map(function(d){return d.cumLogE;});
+  var yMin = Math.min(0, Math.min.apply(null, logVals)) - 0.5;
+  var yMax = Math.max(result.logThreshold * 1.3, Math.max.apply(null, logVals) * 1.2);
+
+  function xS(k) { return margin.l + (k - 0.5) / r.length * plotW; }
+  function yS(v) { return margin.t + plotH - (v - yMin) / (yMax - yMin) * plotH; }
+
+  // Grid
+  ctx.strokeStyle = gridC; ctx.lineWidth = 0.5;
+  for (var g = Math.ceil(yMin); g <= yMax; g++) {
+    var gy = yS(g);
+    ctx.beginPath(); ctx.moveTo(margin.l, gy); ctx.lineTo(W - margin.r, gy); ctx.stroke();
+    ctx.fillStyle = textC; ctx.font = '11px Consolas'; ctx.textAlign = 'right';
+    ctx.fillText(g.toFixed(0), margin.l - 8, gy + 4);
+  }
+
+  // Threshold line
+  ctx.strokeStyle = redC; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  var thY = yS(result.logThreshold);
+  ctx.beginPath(); ctx.moveTo(margin.l, thY); ctx.lineTo(W - margin.r, thY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = redC; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('log(1/\u03B1) = ' + result.logThreshold.toFixed(1), W - margin.r - 120, thY - 6);
+
+  // Zero line
+  ctx.strokeStyle = textC; ctx.lineWidth = 0.5; ctx.globalAlpha = 0.3;
+  ctx.beginPath(); ctx.moveTo(margin.l, yS(0)); ctx.lineTo(W - margin.r, yS(0)); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // E-process line
+  ctx.strokeStyle = accentC; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (var i = 0; i < r.length; i++) {
+    var x = xS(i + 1), y = yS(r[i].cumLogE);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Points
+  for (var i = 0; i < r.length; i++) {
+    var x = xS(i + 1), y = yS(r[i].cumLogE);
+    ctx.fillStyle = r[i].crossed ? greenC : accentC;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+    // Label
+    ctx.fillStyle = textC; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(r[i].study.substring(0, 12), x, H - margin.b + 16 + (i % 2) * 12);
+  }
+
+  // Axis labels
+  ctx.fillStyle = textC; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Cumulative Studies', W / 2, H - 4);
+  ctx.save(); ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('log(E-process)', 0, 0); ctx.restore();
+
+  // Title
+  ctx.font = '13px Georgia'; ctx.fillText('Cumulative E-Process: ' + (result.crossed ? 'CROSSED at study ' + (result.crossedAt + 1) : 'Not yet crossed'), W / 2, 20);
+}
+
+function drawConfSeq(result) {
+  var canvas = document.getElementById('csCanvas');
+  var W = 960, H = 380;
+  var ctx = setCanvas(canvas, W, H);
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var textC = isDark ? '#e0e0e0' : '#1a1a2e';
+  var gridC = isDark ? '#2a2a4a' : '#ddd';
+
+  ctx.fillStyle = isDark ? '#141428' : '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  var r = result.results;
+  if (r.length === 0) return;
+  var isLog = result.measure === 'OR' || result.measure === 'RR';
+
+  var margin = {l:70,r:30,t:40,b:50};
+  var plotW = W - margin.l - margin.r;
+  var plotH = H - margin.t - margin.b;
+
+  // Y range
+  var allVals = [];
+  r.forEach(function(d) { allVals.push(d.csLo, d.csHi, d.ciLo, d.ciHi, d.muHat); });
+  var yMin = Math.min.apply(null, allVals) - 0.1;
+  var yMax = Math.max.apply(null, allVals) + 0.1;
+
+  function xS(k) { return margin.l + (k - 0.5) / r.length * plotW; }
+  function yS(v) { return margin.t + plotH - (v - yMin) / (yMax - yMin) * plotH; }
+
+  // Null line
+  ctx.strokeStyle = textC; ctx.lineWidth = 0.5; ctx.globalAlpha = 0.3;
+  ctx.beginPath(); ctx.moveTo(margin.l, yS(0)); ctx.lineTo(W - margin.r, yS(0)); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // CS band (green)
+  ctx.fillStyle = 'rgba(76,175,80,0.15)';
+  ctx.beginPath();
+  for (var i = 0; i < r.length; i++) ctx.lineTo(xS(i + 1), yS(r[i].csHi));
+  for (var i = r.length - 1; i >= 0; i--) ctx.lineTo(xS(i + 1), yS(r[i].csLo));
+  ctx.closePath(); ctx.fill();
+
+  // CI band (blue)
+  ctx.fillStyle = 'rgba(66,165,245,0.15)';
+  ctx.beginPath();
+  for (var i = 0; i < r.length; i++) ctx.lineTo(xS(i + 1), yS(r[i].ciHi));
+  for (var i = r.length - 1; i >= 0; i--) ctx.lineTo(xS(i + 1), yS(r[i].ciLo));
+  ctx.closePath(); ctx.fill();
+
+  // Estimate line
+  ctx.strokeStyle = textC; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (var i = 0; i < r.length; i++) {
+    var x = xS(i + 1), y = yS(r[i].muHat);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Points
+  for (var i = 0; i < r.length; i++) {
+    ctx.fillStyle = textC;
+    ctx.beginPath(); ctx.arc(xS(i + 1), yS(r[i].muHat), 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Labels
+  ctx.fillStyle = textC; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Cumulative Studies', W / 2, H - 4);
+  ctx.font = '13px Georgia';
+  ctx.fillText('Confidence Sequence (green) vs Classical CI (blue)', W / 2, 20);
+
+  // Y axis
+  ctx.font = '11px Consolas'; ctx.textAlign = 'right';
+  var step = (yMax - yMin) / 6;
+  for (var g = yMin; g <= yMax; g += step) {
+    var label = isLog ? Math.exp(g).toFixed(2) : g.toFixed(2);
+    ctx.fillText(label, margin.l - 8, yS(g) + 4);
+  }
+}
+
+function drawComparison(result) {
+  var canvas = document.getElementById('compareCanvas');
+  var W = 960, H = 380;
+  var ctx = setCanvas(canvas, W, H);
+  var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  var textC = isDark ? '#e0e0e0' : '#1a1a2e';
+
+  ctx.fillStyle = isDark ? '#141428' : '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  var r = result.results;
+  if (r.length === 0) return;
+
+  var margin = {l:70,r:30,t:40,b:50};
+  var plotW = W - margin.l - margin.r;
+  var plotH = H - margin.t - margin.b;
+
+  // Dual Y: left = log(E), right = Z
+  var logVals = r.map(function(d){return d.cumLogE;});
+  var zVals = r.map(function(d){return d.classicalZ;});
+  var yMinL = Math.min(0, Math.min.apply(null, logVals)) - 0.5;
+  var yMaxL = Math.max(result.logThreshold * 1.3, Math.max.apply(null, logVals) * 1.2);
+  var yMinR = Math.min(-1, Math.min.apply(null, zVals)) - 0.5;
+  var yMaxR = Math.max(3, Math.max.apply(null, zVals)) + 0.5;
+
+  function xS(k) { return margin.l + (k - 0.5) / r.length * plotW; }
+  function yL(v) { return margin.t + plotH - (v - yMinL) / (yMaxL - yMinL) * plotH; }
+  function yR(v) { return margin.t + plotH - (v - yMinR) / (yMaxR - yMinR) * plotH; }
+
+  // E-process threshold
+  ctx.strokeStyle = '#f44336'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(margin.l, yL(result.logThreshold)); ctx.lineTo(W - margin.r, yL(result.logThreshold)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Classical z = 1.96 line
+  ctx.strokeStyle = '#42a5f5'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(margin.l, yR(1.96)); ctx.lineTo(W - margin.r, yR(1.96)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // E-process line (purple)
+  ctx.strokeStyle = '#7c4dff'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (var i = 0; i < r.length; i++) {
+    var x = xS(i + 1), y = yL(r[i].cumLogE);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Classical Z line (blue dashes)
+  ctx.strokeStyle = '#42a5f5'; ctx.lineWidth = 2; ctx.setLineDash([8, 4]);
+  ctx.beginPath();
+  for (var i = 0; i < r.length; i++) {
+    var x = xS(i + 1), y = yR(r[i].classicalZ);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = textC; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Cumulative Studies', W / 2, H - 4);
+  ctx.font = '13px Georgia';
+  ctx.fillText('E-Process (purple, left axis) vs Classical Z (blue dashes, right axis)', W / 2, 20);
+
+  // Left axis labels
+  ctx.font = '10px Consolas'; ctx.fillStyle = '#7c4dff'; ctx.textAlign = 'right';
+  for (var g = Math.ceil(yMinL); g <= yMaxL; g++) {
+    ctx.fillText('logE=' + g, margin.l - 6, yL(g) + 3);
+  }
+  // Right axis labels
+  ctx.fillStyle = '#42a5f5'; ctx.textAlign = 'left';
+  for (var g = Math.ceil(yMinR); g <= yMaxR; g++) {
+    ctx.fillText('Z=' + g, W - margin.r + 6, yR(g) + 3);
+  }
+}
+
+// === UI ===
+function renderTable() {
+  var tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  state.studies.forEach(function(s, i) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><input value="'+(s.study||'')+'" oninput="state.studies['+i+'].study=this.value"></td>'+
+      '<td><input type="number" value="'+(s.year||'')+'" oninput="state.studies['+i+'].year=+this.value" style="width:60px"></td>'+
+      '<td><input type="number" value="'+(s.eE??'')+'" oninput="state.studies['+i+'].eE=+this.value" style="width:65px"></td>'+
+      '<td><input type="number" value="'+(s.nE??'')+'" oninput="state.studies['+i+'].nE=+this.value" style="width:65px"></td>'+
+      '<td><input type="number" value="'+(s.eC??'')+'" oninput="state.studies['+i+'].eC=+this.value" style="width:65px"></td>'+
+      '<td><input type="number" value="'+(s.nC??'')+'" oninput="state.studies['+i+'].nC=+this.value" style="width:65px"></td>'+
+      '<td><button class="del-btn" onclick="state.studies.splice('+i+',1);renderTable()">\u2715</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function addRow() { state.studies.push({study:'',year:2024,eE:0,nE:100,eC:0,nC:100}); renderTable(); }
+function clearData() { state.studies=[]; renderTable(); }
+
+function loadExample(idx) {
+  var ex = EXAMPLES[idx];
+  state.studies = ex.studies.map(function(s){return Object.assign({},s);});
+  document.getElementById('setMeasure').value = ex.measure;
+  if (ex.mu1Hint) document.getElementById('setMu1').value = ex.mu1Hint;
+  renderTable();
+  runAnalysis();
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');b.setAttribute('aria-selected','false');});
+  document.getElementById('panel-'+id).classList.add('active');
+  document.getElementById('tbtn-'+id).classList.add('active');
+  document.getElementById('tbtn-'+id).setAttribute('aria-selected','true');
+}
+
+function runAnalysis() {
+  if (state.studies.length < 2) { alert('Need at least 2 studies.'); return; }
+  var alpha = parseFloat(document.getElementById('setAlpha').value);
+  if (!isFinite(alpha) || alpha <= 0) alpha = 0.05;
+  var mu1 = parseFloat(document.getElementById('setMu1').value);
+  var tau2 = parseFloat(document.getElementById('setTau2').value);
+  if (!isFinite(tau2) || tau2 <= 0) tau2 = 0.5;
+  var measure = document.getElementById('setMeasure').value;
+
+  var result = computeEProcess(state.studies, measure, mu1, tau2, alpha);
+  state.result = result;
+
+  // Metrics
+  var r = result.results;
+  var last = r[r.length - 1];
+  var isLog = measure === 'OR' || measure === 'RR';
+  document.getElementById('eMetrics').innerHTML =
+    '<div class="metric"><div class="metric-val '+(result.crossed?'crossed':'not-crossed')+'">'+
+    (result.crossed ? 'CROSSED' : 'NOT CROSSED')+'</div><div class="metric-lbl">E-value threshold (1/\u03B1 = '+(1/alpha).toFixed(0)+')</div></div>'+
+    '<div class="metric"><div class="metric-val">'+last.cumE.toFixed(1)+'</div><div class="metric-lbl">Cumulative E-value</div></div>'+
+    '<div class="metric"><div class="metric-val">'+(isLog?Math.exp(last.muHat).toFixed(3):last.muHat.toFixed(3))+'</div><div class="metric-lbl">Pooled '+measure+'</div></div>'+
+    '<div class="metric"><div class="metric-val">'+r.length+'</div><div class="metric-lbl">Studies</div></div>';
+
+  // E-value table
+  var tbl = '<thead><tr><th>k</th><th>Study</th><th>y_i</th><th>SE</th><th>E_GRO</th><th>E_mix</th><th>log(E_cum)</th><th>Crossed?</th></tr></thead><tbody>';
+  r.forEach(function(d) {
+    tbl += '<tr><td>'+d.k+'</td><td>'+d.study+'</td><td>'+d.yi.toFixed(3)+'</td><td>'+Math.sqrt(d.vi).toFixed(3)+'</td>'+
+      '<td>'+d.eGRO.toFixed(3)+'</td><td>'+d.eMix.toFixed(3)+'</td><td>'+d.cumLogE.toFixed(2)+'</td>'+
+      '<td style="color:'+(d.crossed?'var(--green)':'var(--text2)')+'">'+
+      (d.crossed?(d.k===result.crossedAt+1?'\u2713 HERE':'\u2713'):'\u2014')+'</td></tr>';
+  });
+  tbl += '</tbody>';
+  document.getElementById('evalueTable').innerHTML = tbl;
+
+  // Draw plots
+  try { drawEProcess(result); } catch(e) {}
+  try { drawConfSeq(result); } catch(e) {}
+  try { drawComparison(result); } catch(e) {}
+
+  // Report
+  renderReport(result);
+  switchTab('eplot');
+}
+
+function renderReport(result) {
+  var r = result.results;
+  var last = r[r.length - 1];
+  var isLog = result.measure === 'OR' || result.measure === 'RR';
+  var effectText = isLog ? result.measure + '=' + Math.exp(last.muHat).toFixed(2) : result.measure + '=' + last.muHat.toFixed(3);
+  var csText = isLog ?
+    '[' + Math.exp(last.csLo).toFixed(2) + ', ' + Math.exp(last.csHi).toFixed(2) + ']' :
+    '[' + last.csLo.toFixed(3) + ', ' + last.csHi.toFixed(3) + ']';
+
+  var text = 'SAFE META-ANALYSIS REPORT (SafeMA v1.0)\n' +
+    'Framework: Gr\u00FCnwald-Ter Schure ALL-IN (JRSS-B 2024)\n\n' +
+    'E-VALUE SEQUENTIAL ANALYSIS\n' +
+    'Studies: k=' + r.length + '\n' +
+    'Anticipated effect (\u03BC\u2081): ' + result.mu1.toFixed(3) + '\n' +
+    'Significance threshold: 1/\u03B1 = ' + result.threshold.toFixed(0) + ' (\u03B1=' + result.alpha + ')\n\n' +
+    'CUMULATIVE E-VALUE: ' + last.cumE.toFixed(2) + ' (log: ' + last.cumLogE.toFixed(2) + ')\n' +
+    'VERDICT: ' + (result.crossed ?
+      'E-process CROSSED the threshold at study ' + (result.crossedAt + 1) + ' (' + r[result.crossedAt].study + '). ' +
+      'The evidence against H\u2080 is strong under anytime-valid inference.' :
+      'E-process has NOT crossed the threshold. Insufficient evidence to reject H\u2080. ' +
+      'Unlike classical TSA, you may continue accumulating evidence without penalty.') + '\n\n' +
+    'POOLED ESTIMATE: ' + effectText + '\n' +
+    'Anytime-valid confidence sequence: ' + csText + '\n' +
+    '(Valid at ALL stopping times, not just this one)\n\n' +
+    'KEY ADVANTAGE OVER CLASSICAL TSA:\n' +
+    'This analysis required no pre-specified sample size, no pre-specified number of looks, ' +
+    'and no alpha-spending function. The Type I error guarantee holds regardless of when or ' +
+    'why you stopped collecting evidence (Ville\'s inequality).\n\n' +
+    'Generated by SafeMA (Ahmad, 2026). No data left the device.\n' +
+    'Reference: Gr\u00FCnwald P, de Heide R, Koolen W. Safe Testing. JRSS-B. 2024;86(5):1091-1128.';
+
+  document.getElementById('reportText').textContent = text;
+}
+
+function copyReport() {
+  navigator.clipboard.writeText(document.getElementById('reportText').textContent)
+    .then(function(){alert('Copied!')}).catch(function(){});
+}
+
+function exportJSON() {
+  if (!state.result) return;
+  var data = {
+    version: 'safema-1.0',
+    framework: 'Grunwald-Ter Schure ALL-IN (JRSS-B 2024)',
+    measure: state.result.measure,
+    alpha: state.result.alpha,
+    mu1: state.result.mu1,
+    crossed: state.result.crossed,
+    crossedAt: state.result.crossedAt,
+    finalE: state.result.finalE,
+    finalLogE: state.result.finalLogE,
+    studies: state.result.results.map(function(r) {
+      return {k:r.k,study:r.study,yi:r.yi,vi:r.vi,eGRO:r.eGRO,eMix:r.eMix,cumLogE:r.cumLogE,crossed:r.crossed};
+    })
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = 'safema-results.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function toggleTheme() {
+  var d = document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', d === 'dark' ? 'light' : 'dark');
+  document.querySelector('.theme-btn').textContent = d === 'dark' ? 'Dark' : 'Light';
+  if (state.result) { try { drawEProcess(state.result); drawConfSeq(state.result); drawComparison(state.result); } catch(e) {} }
+}
+
+// Init
+state.studies = [{study:'',year:2024,eE:0,nE:100,eC:0,nC:100},{study:'',year:2024,eE:0,nE:100,eC:0,nC:100}];
+renderTable();
+</script>
+</body>
+</html>
